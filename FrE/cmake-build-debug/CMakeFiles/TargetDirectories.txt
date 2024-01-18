@@ -1,0 +1,3 @@
+/home/eurus/verkle-c/FrE/cmake-build-debug/CMakeFiles/FrE.dir
+/home/eurus/verkle-c/FrE/cmake-build-debug/CMakeFiles/edit_cache.dir
+/home/eurus/verkle-c/FrE/cmake-build-debug/CMakeFiles/rebuild_cache.dir
