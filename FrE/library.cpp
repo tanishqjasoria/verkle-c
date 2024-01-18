@@ -10,28 +10,34 @@ const ulong Q1 = 18415085837358793841UL;
 const ulong Q2 = 922804724659942912UL;
 const ulong Q3 = 2088379214866112338UL;
 
-//struct FrE {
-//    union {
-//        struct{
-//            unsigned long u0;
-//            unsigned long u1;
-//            unsigned long u2;
-//            unsigned long u3;
-//        };
-//        char bytes[32]; // Size of the union
-//    };
-//
-//};
-
-
 struct FrE {
-    unsigned long u0;
-    unsigned long u1;
-    unsigned long u2;
-    unsigned long u3;
+    union {
+        struct{
+            unsigned long u0;
+            unsigned long u1;
+            unsigned long u2;
+            unsigned long u3;
+        };
+        char bytes[32]; // Size of the union
+    };
+
 };
 
+
+//struct FrE {
+//    unsigned long u0;
+//    unsigned long u1;
+//    unsigned long u2;
+//    unsigned long u3;
+//};
+
 const FrE qElement = FrE{Q0, Q1, Q2, Q3};
+
+const ulong R0 = 15831548891076708299UL;
+const ulong R1 = 4682191799977818424UL;
+const ulong R2 = 12294384630081346794UL;
+const ulong R3 = 785759240370973821UL;
+const FrE rSquare = FrE{R0, R1, R2, R3};
 
 ulong BigMul(ulong a, ulong b, ulong* low)
 {
@@ -112,6 +118,16 @@ bool LessThan(const FrE& a, const FrE& b)
     return a.u0 < b.u0;
 }
 
+FrE RightShiftByOne(const FrE& x)
+{
+    return FrE{
+            (x.u0 >> 1) | (x.u1 << 63),
+            (x.u1 >> 1) | (x.u2 << 63),
+            (x.u2 >> 1) | (x.u3 << 63),
+            x.u3 >> 1
+    };
+}
+
 extern "C" {
 
     bool AddOverflow(const FrE& a, const FrE& b, FrE* c)
@@ -138,7 +154,7 @@ extern "C" {
         return borrow != 0;
     }
 
-    FrE AddMod(const FrE& a, const FrE& b, const FrE& qElement)
+    FrE AddMod(const FrE& a, const FrE& b)
     {
         FrE c{};
         AddOverflow(a,b,&c);
@@ -150,7 +166,7 @@ extern "C" {
         return c;
     }
 
-    FrE SubMod(const FrE& a, const FrE& b, const FrE& qElement)
+    FrE SubMod(const FrE& a, const FrE& b)
     {
         FrE c{};
         if (SubtractUnderflow(a, b, &c))
@@ -214,5 +230,57 @@ extern "C" {
         FrE res = {z[0],z[1],z[2],z[3]};
         if (LessThan(qElement, res)) SubtractUnderflow(res, qElement, & res);
         return res;
+    }
+
+    FrE Inverse(const FrE& x)
+    {
+        // initialize u = q
+        FrE u = qElement;
+        // initialize s = r^2
+        FrE s = rSquare;
+        FrE r = {0,0,0,0};
+        FrE v = x;
+
+
+        while (true)
+        {
+            while ((v.u0 & 1) == 0)
+            {
+                v = RightShiftByOne(v);
+                if ((s.u0 & 1) == 1) AddOverflow(s, qElement, & s);
+
+                s = RightShiftByOne(s);
+            }
+
+            while ((u.u0 & 1) == 0)
+            {
+                u = RightShiftByOne(u);
+                if ((r.u0 & 1) == 1) AddOverflow(r, qElement, & r);
+
+                r = RightShiftByOne(r);
+            }
+
+            if (!LessThan(v, u))
+            {
+                SubtractUnderflow(v, u, & v);
+                s = SubMod(s, r);
+            }
+            else
+            {
+                SubtractUnderflow(u, v, & u);
+                r = SubMod(r, s);
+            }
+
+
+            if (u.u0 == 1 && (u.u3 | u.u2 | u.u1) == 0)
+            {
+                return r;
+            }
+
+            if (v.u0 == 1 && (v.u3 | v.u2 | v.u1) == 0)
+            {
+                return s;
+            }
+        }
     }
 }
